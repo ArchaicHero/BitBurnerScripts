@@ -1,0 +1,1 @@
+export const TEST_STRING = "This is a triumph";
