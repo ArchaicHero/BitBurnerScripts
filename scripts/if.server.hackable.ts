@@ -1,11 +1,12 @@
-import BaseServer from "./if.server"
+import { NS } from "@ns";
+import BaseServer from "scripts/if.server"
 
 export default class HackableBaseServer extends BaseServer {
-	constructor(ns: any, hostname: string) {
+	constructor(ns: NS, hostname: string) {
 		super(ns, hostname);
 	}
 
-	sudo() {
+	root() {
 		try {
 			this.ns.brutessh(this.id)
 			this.ns.ftpcrack(this.id)

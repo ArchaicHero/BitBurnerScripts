@@ -1,5 +1,7 @@
+import { NS } from "@ns";
+
 /** @param {NS} ns **/
-const reservedHomeRam = 64;
+const reservedHomeRam = 128;
 
 export default class BaseServer {
     _id: string;
