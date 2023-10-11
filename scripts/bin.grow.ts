@@ -5,6 +5,6 @@ export async function main(ns: NS) {
     const target = ns.args[0];
     const repeat = ns.args[1];
     do {
-        await ns.grow(target);
+        await ns.grow(target as string);
     } while(repeat);
 }
