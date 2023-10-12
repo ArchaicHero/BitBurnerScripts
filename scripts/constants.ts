@@ -4,9 +4,10 @@ export const FILENAME_GROW = "bin.grow.js"
 export const FILENAME_WEAKEN = "bin.weaken.js"
 export const FILENAME_MANAGE_HACKS = "manage.hacks.js"
 export const SCRIPT_PREFIX = "scripts/"
-export const FULL_FILENAME_HACK = SCRIPT_PREFIX + "bin.hack.js"
-export const FULL_FILENAME_GROW = SCRIPT_PREFIX + "bin.grow.js"
-export const FULL_FILENAME_WEAKEN = SCRIPT_PREFIX + "bin.weaken.js"
+export const FULL_FILENAME_HACK = SCRIPT_PREFIX + FILENAME_HACK
+export const FULL_FILENAME_GROW = SCRIPT_PREFIX + FILENAME_GROW
+export const FULL_FILENAME_WEAKEN = SCRIPT_PREFIX + FILENAME_WEAKEN 
+export const FULL_FILENAME_MANAGE_HACKS = SCRIPT_PREFIX + FILENAME_MANAGE_HACKS
 
  // List all the servers to AVOID including stuff to avoid such as home
 export const PROTECTED_TARGETS = [".", "home", "darkweb", "CSEC", "I.I.I.I", "run4theh111z", "avmnite-02h", "The-Cave", "w0r1d_d43m0n",

@@ -1,11 +1,10 @@
 import HackableBaseServer from 'scripts/if.server.hackable'
-import BasePlayer from 'scripts/if.player'
-import { SERVER_PREFIX, PROTECTED_TARGETS, FULL_FILENAME_GROW, FULL_FILENAME_HACK, FULL_FILENAME_WEAKEN, FILENAME_MANAGE_HACKS } from 'scripts/constants'
+import { SERVER_PREFIX, PROTECTED_TARGETS, FULL_FILENAME_GROW, FULL_FILENAME_HACK, FULL_FILENAME_WEAKEN, FILENAME_MANAGE_HACKS, FULL_FILENAME_MANAGE_HACKS } from 'scripts/constants'
 import { NS } from '@ns';
-import { sleepPids } from '/utils.pids';
 
 /** @param {NS} ns */
 export async function main(ns: NS) {
+  const REDEPLOY = true;
 	const curLvl = ns.getHackingLevel();
   const ramHack = ns.getScriptRam(FULL_FILENAME_HACK);
   const ramGrow = ns.getScriptRam(FULL_FILENAME_GROW);
@@ -27,8 +26,8 @@ export async function main(ns: NS) {
   let prioTargets = [];
   for (let s of servers) {
     if (ns.getServerRequiredHackingLevel(s.hostname) <= curLvl && !PROTECTED_TARGETS.includes(s.hostname)) {
-      // ns.tprintf("%20s:\ts.money.max %f, s.time.we %f", s.hostname, s.money.max, s.time.we);
-      prioTargets.push({ "rate":  (s.money.max / (s.time.we)), "Server": s})
+      // ns.printf("%20s:\ts.money.max %f, s.time.we %f", s.hostname, s.money.max, s.time.we);
+      prioTargets.push({ "rate":  (s.money.max / (s.time.we)), "server": s})
     }
   }
   prioTargets.sort(function(a, b) {
@@ -37,65 +36,36 @@ export async function main(ns: NS) {
       : 0;
   })
 
-  // ns.tprint("INFO dumping simple priority list");
-  prioTargets.forEach(t => { ns.tprintf("server = %20s \t\trate = %f", t.Server.hostname, t.rate)});
+  // ns.print("INFO dumping simple priority list");
+  prioTargets.forEach(t => { t.server.root() })
 
-  let toRemove = [];
   // Setup servers if needed
   for (let s of servers) {
     if (!s.admin) {
       s.root();
     }
-    if (!s.admin || (s.ram.max < 2)) {
-      toRemove.push(s);
-      continue;
-    }
-    if (!ns.fileExists(FULL_FILENAME_HACK, s.hostname)){
-      ns.scp([FULL_FILENAME_GROW, FULL_FILENAME_HACK, FULL_FILENAME_WEAKEN], s.hostname, "home");
+    if (!ns.fileExists(FULL_FILENAME_MANAGE_HACKS, s.hostname) || REDEPLOY){
+      ns.scp([FULL_FILENAME_MANAGE_HACKS, FULL_FILENAME_GROW, FULL_FILENAME_HACK, FULL_FILENAME_WEAKEN], s.hostname, "home");
     }
   }
 
-  ns.tail()
-  // Remove invalid servers
-  for (let s of toRemove) {
-    servers.splice(servers.indexOf(s), 1)
-  }
+  // cull invalid hosts/targets for when not enough programs to open ports
+  servers = servers.filter(s => { return s.admin && s.ram.max >= 4});
+  prioTargets = prioTargets.filter(s => { return s.server.admin })
 
-  servers.forEach(s => { ns.tprintf("Ready to run hack on %s", s.hostname) })
 
-  let i = 0;
-  let target;
-  while(true) {
-    let pids:number[] = [];
-    for (let server of servers) {
-      target = prioTargets[i % prioTargets.length].Server;
-      ns.printf("INFO starting hacking on %s with target %s", server.hostname, target.hostname);
-      ns.killall(server.hostname)
+  ns.tail();
+  let i = 0;  
+  let target = prioTargets[0].server;
+  ns.tprintf("INFO %s stats:\nsecurity\tcur:%f\tmin:%f\nmoney\t\tcur:%f\tmax:%f", target.hostname, target.security.level, target.security.min, target.money.available, target.money.max);
+  for (let worker of servers) {
+    target = prioTargets[i++ % prioTargets.length].server;
+    ns.printf("INFO starting hacking on %s with target %s", worker.hostname, target.hostname);
+    ns.killall(worker.hostname)
 
-      // TODO:  add batching use link for batching concept
-      // https://github.com/DarkTechnomancer/darktechnomancer.github.io/tree/main
-
-      if (target.security.level > target.security.min + 3) {
-         let threads = Math.floor(Math.min((target.security.level - target.security.min) / ns.growthAnalyzeSecurity(1, target.hostname), server.threadCount(ramWeaken)));
-         ns.printf("INFO executing weaken with %d threads", threads);
-         pids.push(ns.exec(FULL_FILENAME_WEAKEN, server.hostname, threads, target.hostname));
-      } else if (target.money.available < target.money.max) {
-         ns.printf("INFO executing growth with %d threads", server.threadCount(ramGrow));
-         pids.push(ns.exec(FULL_FILENAME_GROW, server.hostname, server.threadCount(ramGrow), target.hostname));
-      } else {
-         ns.printf("INFO executing hack with %d threads", server.threadCount(ramHack));
-         pids.push(ns.exec(FULL_FILENAME_HACK, server.hostname, server.threadCount(ramHack), target.hostname));
-      }
-
-    }
-  if (pids.length > 0) {
-    ns.print("INFO Sleeping on pids: " + pids);
-    await sleepPids(ns, pids);
-  } else {
-    ns.printf("ERROR No pids found, something likely went wrong");
-    ns.tail();
-    await ns.sleep(5000);
-  }
+    ns.exec(FULL_FILENAME_MANAGE_HACKS, worker.hostname, 1, 
+      target.hostname, ramHack, ramGrow, ramWeaken,
+      FULL_FILENAME_HACK, FULL_FILENAME_GROW, FULL_FILENAME_WEAKEN);
   }
 }
 
