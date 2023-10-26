@@ -13,9 +13,14 @@ export async function main(ns: NS) {
    const FULL_FILENAME_HACK= ns.args[4] as string;
    const FULL_FILENAME_GROW = ns.args[5] as string;
    const FULL_FILENAME_WEAKEN = ns.args[6] as string;
+   const tmp = ns.getServerMaxRam(server);
+   if (server == "home") {
+      ns.tprint("running on home server")
+   }
 
    const minSec = ns.getServerMinSecurityLevel(target);
    const maxMon = ns.getServerMaxMoney(target);
+   const maxRam =  server == "home" ? tmp - 1000 : tmp;
 
    // Loop forever dispatching threads available to run optimal grow/weaken/hack
    while(true) {
@@ -28,15 +33,23 @@ export async function main(ns: NS) {
 
       if ( curSec > minSec + 3) {
          let threads = Math.floor(Math.min((curSec - minSec) / ns.growthAnalyzeSecurity(1, target), 
-               threadCounter(ramWeaken)));
+               threadCounter(ramWeaken, maxRam)));
          ns.printf("INFO executing weaken with %d threads", threads);
-         pid = ns.exec(FULL_FILENAME_WEAKEN, server, threads, target);
+         if (threads > 0) {
+            pid = ns.exec(FULL_FILENAME_WEAKEN, server, threads, target);
+         }
       } else if ( curMon < maxMon * 0.9) {
-         ns.printf("INFO executing growth with %d threads", threadCounter(ramGrow));
-         pid = ns.exec(FULL_FILENAME_GROW, server, threadCounter(ramGrow), target);
+         let threads = threadCounter(ramGrow, maxRam);
+         ns.printf("INFO executing growth with %d threads", threads);
+         if (threads > 0) {
+            pid = ns.exec(FULL_FILENAME_GROW, server, threads, target);
+         }
       } else {
-         ns.printf("INFO executing hack with %d threads", threadCounter(ramHack));
-         pid = ns.exec(FULL_FILENAME_HACK, server, threadCounter(ramHack), target);
+         let threads = threadCounter(ramHack, maxRam);
+         ns.printf("INFO executing hack with %d threads", threads);
+         if (threads > 0) {
+            pid = ns.exec(FULL_FILENAME_HACK, server, threads, target);
+         }
       }
       
       if (pid) {
@@ -45,8 +58,7 @@ export async function main(ns: NS) {
             await ns.sleep(2000);
          }
       } else {
-         ns.printf("ERROR No pids found, something likely went wrong");
-         ns.tail();
+         ns.printf("INFO no available ram space, waiting");
          await ns.sleep(2000);
       }
          
@@ -75,8 +87,8 @@ export async function main(ns: NS) {
       let threadsHack = ns.hackAnalyzeThreads(target.hostname, target.money.max / 2); 
       **/
 
-      function threadCounter(scriptRam: number):number {
-         return Math.floor((ns.getServerMaxRam(server) - ns.getServerUsedRam(server)) / ramWeaken);
+      function threadCounter(scriptRam: number, maxRam: number):number {
+         return Math.floor((maxRam - ns.getServerUsedRam(server)) / scriptRam);
       }
    }
 }
